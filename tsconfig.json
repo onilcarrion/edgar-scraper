@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "types": ["jest", "node"], //added
     "target": "es2020",
     "module": "es2020",
     "outDir": "./dist",
