@@ -1,67 +1,162 @@
-// import axios from 'axios';
-// import { fetchEdgarSubmissions } from './fetchEdgarData';
+// import { fetchEdgarData } from './fetchEdgarData';
 
-// // Mock axios
-// jest.mock('axios');
-// const mockedAxios = axios as jest.Mocked<typeof axios>;
-
-// describe('fetchEdgarSubmissions', () => {
-//   it('fetches and processes 8-K filings correctly', async () => {
-//     const exampleCik = '0001018724'; // Example CIK for Amazon
-
-//     // Mock response data
-//     const mockData = {
-//       cik: '0001018724',
-//       entityName: 'Amazon.com Inc',
-//       filings: {
-//         recent: {
-//           form: [
-//             "4", "144", "8-K", "10-Q", "8-K"
-//           ],
-//           dateFiled: [
-//             "2022-01-01", "2022-01-02", "2022-01-03", "2022-01-04", "2022-01-05"
-//           ],
-//           fileNumber: [
-//             "000-22513", "001-22513", "002-22513", "003-22513", "004-22513"
-//           ],
-//           accessionNumber: [
-//             "0001104659-24-065117" // Use the specific accession number you want to test
-//           ]
-//         }
-//       }
-//     };
-
-//     // Set up the mock to return the expected data
-//     mockedAxios.get.mockResolvedValue({ data: mockData });
-
-//     const txtUrls = await fetchEdgarSubmissions(exampleCik);
-
-//     // Adjust the expectation to match the specific URL you want to test against
-//     expect(txtUrls).toEqual([
-//       'https://www.sec.gov/Archives/edgar/data/1018724/000110465924065117/0001104659-24-065117-index.htm'
-//     ]);
-//   });
-
-//   it('throws an error when the CIK is invalid', async () => {
-//     const invalidCik = 'INVALID_CIK';
-
-//     // Set up the mock to throw an error
-//     mockedAxios.get.mockRejectedValue(new Error('Invalid CIK'));
-
-//     await expect(fetchEdgarSubmissions(invalidCik)).rejects.toThrow('Invalid CIK');
+// describe('fetchEdgarData', () => {
+//   it('should fetch 8-K filings for a given CIK', async () => {
+//     const CIK = '0001018724'; // Amazon's CIK as an example
+//     const urls = await fetchEdgarData(CIK);
+//     expect(urls.length).toBeGreaterThan(0);
+//     expect(urls[0]).toContain('https://www.sec.gov/Archives/edgar/data/');
 //   });
 // });
 
+
+import axios from 'axios';
 import { fetchEdgarData } from './fetchEdgarData';
 
+jest.mock('axios');
+
 describe('fetchEdgarData', () => {
+  afterEach(() => {
+    jest.restoreAllMocks(); // Restore mocked functions after each test
+  });
+
   it('should fetch 8-K filings for a given CIK', async () => {
-    const CIK = '0001018724'; // Amazon's CIK as an example
-    const urls = await fetchEdgarData(CIK);
+    const cik = '0001018724'; // Example CIK
+    const mockResponse = {
+      data: {
+        filings: {
+          recent: {
+            accessionNumber: ['0001234567']
+          }
+        }
+      }
+    };
+    (axios.get as jest.MockedFunction<typeof axios.get>).mockResolvedValue(mockResponse);
+
+    const urls = await fetchEdgarData(cik);
+
+    expect(urls).toBeInstanceOf(Array);
     expect(urls.length).toBeGreaterThan(0);
-    expect(urls[0]).toContain('https://www.sec.gov/Archives/edgar/data/');
+    expect(urls[0]).toBe('https://www.sec.gov/Archives/edgar/data/0001018724/0001234567.txt');
+  });
+
+  it('should handle an invalid CIK format', async () => {
+    const invalidCik = '12345ABC'; // Invalid CIK
+    (axios.get as jest.MockedFunction<typeof axios.get>).mockRejectedValue(new Error('Network Error'));
+
+    await expect(fetchEdgarData(invalidCik)).rejects.toThrow('Failed to fetch data');
+  });
+
+  it('should handle a nonexistent CIK', async () => {
+    const nonexistentCik = '0000000000'; // Nonexistent CIK
+    (axios.get as jest.MockedFunction<typeof axios.get>).mockRejectedValue({
+      response: {
+        status: 404,
+        statusText: 'Not Found',
+      }
+    });
+
+    await expect(fetchEdgarData(nonexistentCik)).rejects.toThrow('Failed to fetch data');
+  });
+
+  it('should handle a valid CIK with no filings', async () => {
+    const noFilingsCik = '0001067983'; // Example CIK with no recent filings
+    const mockResponse = {
+      data: {
+        filings: {
+          recent: []
+        }
+      }
+    };
+    (axios.get as jest.MockedFunction<typeof axios.get>).mockResolvedValue(mockResponse);
+
+    const urls = await fetchEdgarData(noFilingsCik);
+    expect(urls).toEqual([]);
+  });
+
+  it('should handle API rate limiting', async () => {
+    const cik = '0001018724'; // Example CIK
+    (axios.get as jest.MockedFunction<typeof axios.get>).mockRejectedValue({
+      response: {
+        status: 429,
+        statusText: 'Too Many Requests',
+      }
+    });
+
+    await expect(fetchEdgarData(cik)).rejects.toThrow('Failed to fetch data');
+  });
+
+  it('should handle network errors', async () => {
+    const cik = '0001018724'; // Example CIK
+    (axios.get as jest.MockedFunction<typeof axios.get>).mockRejectedValue(new Error('Network Error'));
+
+    await expect(fetchEdgarData(cik)).rejects.toThrow('Failed to fetch data');
   });
 });
+
+
+
+
+
+
+// import axios from 'axios';
+// import { fetchEdgarData } from './fetchEdgarData';
+
+
+// describe('fetchEdgarData', () => {
+//   it('should fetch 8-K filings for a given CIK', async () => {
+//     const cik = '0001018724'; // Example CIK
+//     const urls = await fetchEdgarData(cik);
+
+//     expect(urls).toBeInstanceOf(Array);
+//     expect(urls.length).toBeGreaterThan(0);
+//   });
+
+//   it('should handle an invalid CIK format', async () => {
+//     const invalidCik = '12345ABC'; // Invalid CIK
+//     await expect(fetchEdgarData(invalidCik)).rejects.toThrow('Failed to fetch data');
+//   });
+
+//   it('should handle a nonexistent CIK', async () => {
+//     const nonexistentCik = '0000000000'; // Nonexistent CIK
+//     await expect(fetchEdgarData(nonexistentCik)).rejects.toThrow('Failed to fetch data');
+//   });
+
+//   it('should handle a valid CIK with no filings', async () => {
+//     const noFilingsCik = '0001067983'; // Example CIK with no recent filings
+//     const urls = await fetchEdgarData(noFilingsCik);
+//     expect(urls).toEqual([]);
+//   });
+
+//   it('should handle API rate limiting', async () => {
+//     jest.spyOn(axios, 'get').mockRejectedValue({
+//       response: {
+//         status: 429,
+//         statusText: 'Too Many Requests',
+//       }
+//     });
+
+//     const cik = '0001018724'; // Example CIK
+//     await expect(fetchEdgarData(cik)).rejects.toThrow('Failed to fetch data');
+//   });
+
+//   it('should handle network errors', async () => {
+//     jest.spyOn(axios, 'get').mockRejectedValue(new Error('Network Error'));
+
+//     const cik = '0001018724'; // Example CIK
+//     await expect(fetchEdgarData(cik)).rejects.toThrow('Failed to fetch data');
+//   });
+
+//   afterEach(() => {
+//     jest.restoreAllMocks(); // Restore mocked functions after each test
+//   });
+// });
+
+
+
+
+
+
 
 
 
